@@ -31,11 +31,83 @@ git commit -m "Initial commit"
 
 ### Step 3: Push Your Code to GitHub
 
-```bash
-# Add your GitHub repository as remote (replace YOUR_USERNAME and REPO_NAME)
-git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
+**⚠️ Authentication Required:** GitHub no longer supports password authentication. You need to use a Personal Access Token (PAT) or SSH.
 
-# Push your code
+#### Option A: Using Personal Access Token (Recommended for beginners)
+
+1. **Create a Personal Access Token:**
+   - Go to GitHub.com → Click your profile picture (top right) → **Settings**
+   - Scroll down to **Developer settings** (left sidebar)
+   - Click **Personal access tokens** → **Tokens (classic)**
+   - Click **Generate new token** → **Generate new token (classic)**
+   - Give it a name (e.g., "yahoo-finance-repo")
+   - Select expiration (30 days, 90 days, or no expiration)
+   - Check the **repo** scope (this gives full repository access)
+   - Click **Generate token**
+   - **⚠️ IMPORTANT:** Copy the token immediately (you won't see it again!)
+
+2. **Push using the token:**
+   ```bash
+   # Add your GitHub repository as remote (replace YOUR_USERNAME and REPO_NAME)
+   git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
+   
+   # Push your code (when prompted for password, paste your token instead)
+   git branch -M main
+   git push -u origin main
+   ```
+   
+   When prompted:
+   - **Username:** Your GitHub username
+   - **Password:** Paste your Personal Access Token (not your GitHub password)
+
+3. **Alternative: Use token in URL (one-time setup):**
+   ```bash
+   # Replace YOUR_USERNAME, YOUR_TOKEN, and REPO_NAME
+   git remote add origin https://YOUR_TOKEN@github.com/YOUR_USERNAME/REPO_NAME.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+#### Option B: Using SSH (More secure, recommended for advanced users)
+
+1. **Check if you have SSH keys:**
+   ```bash
+   ls ~/.ssh
+   ```
+   If you see `id_rsa` and `id_rsa.pub` (or `id_ed25519` and `id_ed25519.pub`), skip to step 3.
+
+2. **Generate SSH key (if needed):**
+   ```bash
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   # Press Enter to accept default location
+   # Optionally set a passphrase (recommended)
+   ```
+
+3. **Add SSH key to GitHub:**
+   - Copy your public key:
+     ```bash
+     # Windows (PowerShell)
+     cat ~/.ssh/id_ed25519.pub
+     # Or if using id_rsa:
+     cat ~/.ssh/id_rsa.pub
+     ```
+   - Go to GitHub.com → Settings → **SSH and GPG keys** → **New SSH key**
+   - Paste your public key and save
+
+4. **Push using SSH:**
+   ```bash
+   # Use SSH URL instead of HTTPS
+   git remote add origin git@github.com:YOUR_USERNAME/REPO_NAME.git
+   git branch -M main
+   git push -u origin main
+   ```
+
+#### Option C: Using GitHub CLI (Alternative)
+
+If you have GitHub CLI installed:
+```bash
+gh auth login
+git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
 git branch -M main
 git push -u origin main
 ```
@@ -114,6 +186,18 @@ If you encounter permission errors when committing:
 3. Check "Allow GitHub Actions to create and approve pull requests"
 
 ### Troubleshooting
+
+**Authentication failed when pushing:**
+- Make sure you're using a Personal Access Token (PAT), not your password
+- For HTTPS: Use token as password when prompted
+- For SSH: Ensure your SSH key is added to GitHub
+- If using token in URL, make sure it's correct
+- Try removing and re-adding the remote:
+  ```bash
+  git remote remove origin
+  git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
+  git push -u origin main
+  ```
 
 **Workflow fails to commit:**
 - Check workflow permissions (see above)

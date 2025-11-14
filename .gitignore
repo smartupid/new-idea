@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Database files (uncomment if you don't want to commit databases)
+# *.db
+# *.sqlite
+# *.sqlite3
+
+# Excel files (uncomment if you don't want to commit Excel files)
+# *.xlsx
+# *.xls
+
+# JSON files (uncomment if you don't want to commit JSON files)
+# *.json
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# OneDrive
+.oneDrive/
+

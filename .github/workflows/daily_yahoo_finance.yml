@@ -2,9 +2,9 @@ name: Daily Yahoo Finance Data Collection
 
 on:
   schedule:
-    # Run daily at 7:00 PM EST (midnight UTC) - adjust timezone as needed
+    # Run daily at midnight UTC (7:00 PM EST / 8:00 PM EDT) - adjust timezone as needed
     # Market closes at 4:00 PM EST, so this captures end-of-day data
-    - cron: '0 0 * * 1-5'  # Monday-Friday at 7:00 PM EST
+    - cron: '0 0 * * 1-5'  # Monday-Friday at midnight UTC
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
