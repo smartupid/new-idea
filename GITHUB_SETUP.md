@@ -199,8 +199,10 @@ If you encounter permission errors when committing:
   git push -u origin main
   ```
 
-**Workflow fails to commit:**
-- Check workflow permissions (see above)
+**Workflow fails to commit/push (403 Permission denied):**
+- The workflow file now includes `permissions: contents: write` which should fix this
+- Also verify repository settings: Settings → Actions → General → Workflow permissions → "Read and write permissions"
+- The workflow uses `GITHUB_TOKEN` automatically - no additional setup needed
 - Ensure `.gitignore` doesn't exclude `.db` files if you want them committed
 
 **Scripts fail:**
