@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(python make_report.py)",
+      "Bash(pip install *)"
+    ]
+  }
+}
