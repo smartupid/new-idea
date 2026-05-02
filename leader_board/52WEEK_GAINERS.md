@@ -19,6 +19,7 @@ The code will run on the last day of each month after market close through Githu
 ## Analysis and Report
 
 Search through the data and produce following reports on a HTML file.
+- Top 20 stocks that had the most price change percentage between the last two runs, list in the descending order of the return, include all columns from the data
 - Top 20 stocks that moved up the most between the last two runs, list in the descending order of improvement in ranks, include all columns from the data
 - Top 20 stocks that had the biggest increase in 52-week change percentage, list in the descending order of the change, include all columns from the data
 - Top 20 stocks that first entered the list in the last run, list in the descending order of their ranks, include all columns from the data

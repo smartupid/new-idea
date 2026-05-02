@@ -67,6 +67,11 @@ _IMPROVED_EXTRA = [
     ("improvement", "Rank ↑",   _parse_float),
 ]
 
+_PRICE_CHG_EXTRA = [
+    ("prev_last",     "Prev Price",  _parse_float),
+    ("price_chg_pct", "Price Chg %", _parse_pct),
+]
+
 _52WK_EXTRA = [
     ("prev_52wk_change", "Prev 52Wk Chg", _parse_pct),
     ("wk52_chg_delta",   "52Wk Chg ↑",   _parse_pct),
@@ -119,6 +124,24 @@ def analyze(db_path: str) -> dict:
 
     prev_by_symbol = {r["symbol"]: r for r in prev}
 
+    # 0. Biggest price change % between runs
+    price_changed = []
+    for r in latest:
+        sym = r["symbol"]
+        if sym in prev_by_symbol:
+            curr_price = _parse_float(r["last"])
+            prev_price = _parse_float(prev_by_symbol[sym]["last"])
+            if not math.isnan(curr_price) and not math.isnan(prev_price) and prev_price != 0:
+                pct = (curr_price - prev_price) / prev_price * 100
+                price_changed.append({
+                    **r,
+                    "prev_last":     prev_by_symbol[sym]["last"],
+                    "price_chg_pct": f"{pct:+.2f}%",
+                    "_price_chg_num": pct,
+                })
+    price_changed.sort(key=lambda x: x["_price_chg_num"], reverse=True)
+    top_price_chg = price_changed[:20]
+
     # 1. Most improved rank
     improved = []
     for r in latest:
@@ -153,11 +176,12 @@ def analyze(db_path: str) -> dict:
     top_52wk = wk52_moved[:20]
 
     return {
-        "latest_date":  latest_date,
-        "prev_date":    prev_date,
-        "top_improved": top_improved,
-        "top_new":      top_new,
-        "top_52wk":     top_52wk,
+        "latest_date":   latest_date,
+        "prev_date":     prev_date,
+        "top_price_chg": top_price_chg,
+        "top_improved":  top_improved,
+        "top_new":       top_new,
+        "top_52wk":      top_52wk,
     }
 
 
@@ -279,13 +303,15 @@ def generate_html(result: dict, out_path: str = "52wk_gainers_report.html") -> s
     prev_date   = result["prev_date"]
     generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-    wk52_cols     = _52WK_EXTRA + _DATA_COLS
-    improved_cols = _IMPROVED_EXTRA + _DATA_COLS
-    new_cols      = _DATA_COLS
+    price_chg_cols = _PRICE_CHG_EXTRA + _DATA_COLS
+    wk52_cols      = _52WK_EXTRA + _DATA_COLS
+    improved_cols  = _IMPROVED_EXTRA + _DATA_COLS
+    new_cols       = _DATA_COLS
 
-    t_52wk     = _html_table("tbl-52wk",     result["top_52wk"],     wk52_cols)
-    t_improved = _html_table("tbl-improved", result["top_improved"], improved_cols)
-    t_new      = _html_table("tbl-new",      result["top_new"],      new_cols)
+    t_price_chg = _html_table("tbl-price-chg", result["top_price_chg"], price_chg_cols)
+    t_52wk      = _html_table("tbl-52wk",      result["top_52wk"],      wk52_cols)
+    t_improved  = _html_table("tbl-improved",  result["top_improved"],  improved_cols)
+    t_new       = _html_table("tbl-new",       result["top_new"],       new_cols)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -301,6 +327,9 @@ def generate_html(result: dict, out_path: str = "52wk_gainers_report.html") -> s
   Report generated: {generated_at}<br>
   <em>Click any column header to sort. Click again to reverse.</em>
 </p>
+
+<h2>Top 20 Biggest Price Change % (between last two runs)</h2>
+<div class="wrap">{t_price_chg}</div>
 
 <h2>Top 20 Biggest Increase in 52-Week Change %</h2>
 <div class="wrap">{t_52wk}</div>

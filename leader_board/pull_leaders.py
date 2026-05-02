@@ -60,7 +60,8 @@ def main():
             out = rpt.generate_html(result, args.report_out)
             print(f"Report written to: {out}  (comparing {result['prev_date']} → {result['latest_date']})")
             print(
-                f"  52Wk chg movers: {len(result['top_52wk'])} | "
+                f"  Price chg movers: {len(result['top_price_chg'])} | "
+                f"52Wk chg movers: {len(result['top_52wk'])} | "
                 f"Most improved: {len(result['top_improved'])} | "
                 f"New entrants: {len(result['top_new'])}"
             )

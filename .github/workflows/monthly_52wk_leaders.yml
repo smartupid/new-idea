@@ -1,0 +1,81 @@
+name: Monthly 52-Week Gainers Leaderboard
+
+on:
+  schedule:
+    # Run at 22:00 UTC on the 28th–31st of every month.
+    # A job-level check exits early when it is not the last calendar day.
+    - cron: '0 22 28-31 * *'
+  workflow_dispatch:  # Allow manual triggering from the Actions tab
+
+jobs:
+  leaderboard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Check if today is the last day of the month
+      id: last-day-check
+      run: |
+        if [ "$(date -d '+1 day' +%d)" = "01" ]; then
+          echo "is_last_day=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "is_last_day=false" >> "$GITHUB_OUTPUT"
+          echo "Not the last day of the month — skipping."
+        fi
+
+    - name: Checkout repository
+      if: steps.last-day-check.outputs.is_last_day == 'true'
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      if: steps.last-day-check.outputs.is_last_day == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      if: steps.last-day-check.outputs.is_last_day == 'true'
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r leader_board/requirements.txt
+
+    - name: Pull data and generate report
+      if: steps.last-day-check.outputs.is_last_day == 'true'
+      working-directory: leader_board
+      run: |
+        python pull_leaders.py --method bs --pages 5 --report-out 52wk_gainers_report.html
+
+    - name: Commit updated database
+      if: steps.last-day-check.outputs.is_last_day == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add leader_board/*.db
+        git diff --staged --quiet || git commit -m "Update 52wk leaders DB - $(date +'%Y-%m-%d')"
+        git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+        git push origin HEAD:main
+
+    - name: Send report by email
+      if: steps.last-day-check.outputs.is_last_day == 'true'
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "52-Week Gainers Monthly Leaderboard - ${{ job.status }} ($(date +'%Y-%m-%d'))"
+        to: ${{ secrets.EMAIL_TO }}
+        from: ${{ secrets.EMAIL_USERNAME }}
+        body: |
+          Monthly 52-week gainers leaderboard report is attached.
+
+          Status: ${{ job.status }}
+          Run date: ${{ github.run_id }}
+
+          View run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        attachments: leader_board/52wk_gainers_report.html
+        content_type: text/html
+      continue-on-error: true
