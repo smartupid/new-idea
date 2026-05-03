@@ -3,70 +3,74 @@ from datetime import datetime, UTC
 from db import init_db, insert_rows
 import bs_scraper
 import selenium_scraper
-import report as rpt
 
 URL_TEMPLATE = "https://finance.yahoo.com/markets/stocks/52-week-gainers/?start={start}&count=100"
 
 
-def urls_for_pages(pages: int):
+def _urls_for_pages(pages: int) -> list[str]:
     return [URL_TEMPLATE.format(start=(i * 100)) for i in range(pages)]
 
 
-def run_bs(pages: int, db_path: str = "yahoo_52wk_gainers.db"):
+def _run_scraper(method: str, pages: int, db_path: str) -> int:
     conn = init_db(db_path)
-    all_count = 0
-    for url in urls_for_pages(pages):
-        rows = bs_scraper.scrape_url(url)
+    scraper = bs_scraper if method == "bs" else selenium_scraper
+    count = 0
+    for url in _urls_for_pages(pages):
+        rows = scraper.scrape_url(url)
         insert_rows(conn, rows, datetime.now(UTC).date().isoformat())
-        all_count += len(rows)
+        count += len(rows)
     conn.close()
-    return all_count
+    return count
 
 
-def run_selenium(pages: int, db_path: str = "yahoo_52wk_gainers.db"):
-    conn = init_db(db_path)
-    all_count = 0
-    for url in urls_for_pages(pages):
-        rows = selenium_scraper.scrape_url(url)
-        insert_rows(conn, rows, datetime.now(UTC).date().isoformat())
-        all_count += len(rows)
-    conn.close()
-    return all_count
+def cmd_pull(args):
+    count = _run_scraper(args.method, args.pages, args.db)
+    print(f"Inserted {count} rows using {args.method}")
+
+
+def cmd_report(args):
+    import report as rpt
+    try:
+        result = rpt.analyze(args.db)
+        out = rpt.generate_html(result, args.out)
+        print(f"Report written to: {out}  ({result['prev_date']} → {result['latest_date']})")
+        print(
+            f"  Price chg: {len(result['top_price_chg'])} | "
+            f"52Wk chg: {len(result['top_52wk'])} | "
+            f"Improved: {len(result['top_improved'])} | "
+            f"New: {len(result['top_new'])}"
+        )
+    except ValueError as e:
+        print(f"Report skipped: {e}")
+
+
+def cmd_app(args):
+    import app
+    app.run(db_path=args.db, debug=args.debug)
 
 
 def main():
-    p = argparse.ArgumentParser(description="Pull 52-week gainers from Yahoo Finance and/or generate a report.")
-    p.add_argument("--method", choices=["bs", "selenium"], default="bs")
-    p.add_argument("--pages", type=int, default=5, help="number of 100-row pages to scrape (default: 5 => 500)")
-    p.add_argument("--db", default="yahoo_52wk_gainers.db")
-    p.add_argument("--report-only", action="store_true",
-                   help="skip data pull; generate report from existing database")
-    p.add_argument("--report-out", default="52wk_gainers_report.html",
-                   help="output path for the HTML report (default: 52wk_gainers_report.html)")
-    p.add_argument("--no-report", action="store_true",
-                   help="skip report generation after data pull")
+    p = argparse.ArgumentParser(description="52-week gainers pipeline.")
+    sub = p.add_subparsers(dest="command", required=True, help="pull | report | app")
+
+    pull_p = sub.add_parser("pull", help="Scrape Yahoo Finance and store data in the database.")
+    pull_p.add_argument("--method", choices=["bs", "selenium"], default="bs")
+    pull_p.add_argument("--pages", type=int, default=5, help="pages of 100 rows each (default: 5 → 500 rows)")
+    pull_p.add_argument("--db", default="yahoo_52wk_gainers.db")
+    pull_p.set_defaults(func=cmd_pull)
+
+    report_p = sub.add_parser("report", help="Generate HTML report from existing database.")
+    report_p.add_argument("--db", default="yahoo_52wk_gainers.db")
+    report_p.add_argument("--out", default="52wk_gainers_report.html")
+    report_p.set_defaults(func=cmd_report)
+
+    app_p = sub.add_parser("app", help="Run the interactive Dash web app.")
+    app_p.add_argument("--db", default="yahoo_52wk_gainers.db")
+    app_p.add_argument("--debug", action="store_true")
+    app_p.set_defaults(func=cmd_app)
+
     args = p.parse_args()
-
-    if not args.report_only:
-        if args.method == "bs":
-            count = run_bs(args.pages, args.db)
-        else:
-            count = run_selenium(args.pages, args.db)
-        print(f"Inserted {count} rows using {args.method}")
-
-    if not args.no_report:
-        try:
-            result = rpt.analyze(args.db)
-            out = rpt.generate_html(result, args.report_out)
-            print(f"Report written to: {out}  (comparing {result['prev_date']} → {result['latest_date']})")
-            print(
-                f"  Price chg movers: {len(result['top_price_chg'])} | "
-                f"52Wk chg movers: {len(result['top_52wk'])} | "
-                f"Most improved: {len(result['top_improved'])} | "
-                f"New entrants: {len(result['top_new'])}"
-            )
-        except ValueError as e:
-            print(f"Report skipped: {e}")
+    args.func(args)
 
 
 if __name__ == "__main__":

@@ -46,7 +46,8 @@ jobs:
       if: steps.last-day-check.outputs.is_last_day == 'true'
       working-directory: leader_board
       run: |
-        python pull_leaders.py --method bs --pages 5 --report-out 52wk_gainers_report.html
+        python pull_leaders.py pull --method bs --pages 5
+        python pull_leaders.py report --out 52wk_gainers_report.html
 
     - name: Commit updated database
       if: steps.last-day-check.outputs.is_last_day == 'true'

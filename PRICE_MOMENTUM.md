@@ -81,3 +81,12 @@ A web UI will be created. At start, there's a text box for the user to input a s
 - the set of plots as defined above
 
 When the date window changes, the second progress bar should reappear and all plots should be refreshed to reflect the change.
+
+
+# Run
+
+```bash
+pip install yfinance plotly dash numpy
+python price_momentum.py
+# open http://127.0.0.1:8050
+```
