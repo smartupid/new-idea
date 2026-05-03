@@ -110,23 +110,30 @@ def _get_ranked_data(conn: sqlite3.Connection, date: str) -> list[dict]:
 # Analysis
 # ---------------------------------------------------------------------------
 
-def analyze(db_path: str) -> dict:
-    conn = sqlite3.connect(db_path)
-    try:
-        dates = _get_last_two_dates(conn)
-        if len(dates) < 2:
-            raise ValueError(f"Need at least 2 runs in the database, found {len(dates)}.")
-        latest_date, prev_date = dates[0], dates[1]
-        latest = _get_ranked_data(conn, latest_date)
-        prev   = _get_ranked_data(conn, prev_date)
-    finally:
-        conn.close()
+def _filter_by_cap(rows: list[dict], cap: str) -> list[dict]:
+    if cap == "overall":
+        return rows
+    def ok(r):
+        mc = _parse_abbrev(str(r.get("market_cap", "")))
+        if math.isnan(mc):
+            return False
+        if cap == "large":
+            return mc > 100e9
+        if cap == "mid":
+            return 10e9 <= mc <= 100e9
+        if cap == "small":
+            return mc < 10e9
+        return True
+    return [r for r in rows if ok(r)]
 
+
+def _compute_analysis(latest: list[dict], prev: list[dict],
+                      latest_date: str, prev_date: str, cap: str = "overall") -> dict:
+    pool = _filter_by_cap(latest, cap)
     prev_by_symbol = {r["symbol"]: r for r in prev}
 
-    # 0. Biggest price change % between runs
     price_changed = []
-    for r in latest:
+    for r in pool:
         sym = r["symbol"]
         if sym in prev_by_symbol:
             curr_price = _parse_float(r["last"])
@@ -135,31 +142,25 @@ def analyze(db_path: str) -> dict:
                 pct = (curr_price - prev_price) / prev_price * 100
                 price_changed.append({
                     **r,
-                    "prev_last":     prev_by_symbol[sym]["last"],
-                    "price_chg_pct": f"{pct:+.2f}%",
+                    "prev_last":      prev_by_symbol[sym]["last"],
+                    "price_chg_pct":  f"{pct:+.2f}%",
                     "_price_chg_num": pct,
                 })
     price_changed.sort(key=lambda x: x["_price_chg_num"], reverse=True)
-    top_price_chg = price_changed[:20]
 
-    # 1. Most improved rank
     improved = []
-    for r in latest:
+    for r in pool:
         sym = r["symbol"]
         if sym in prev_by_symbol:
             prev_rank = prev_by_symbol[sym]["rank"]
             improved.append({**r, "prev_rank": prev_rank, "improvement": prev_rank - r["rank"]})
     improved.sort(key=lambda x: x["improvement"], reverse=True)
-    top_improved = improved[:20]
 
-    # 2. New entrants
-    new_entrants = [r for r in latest if r["symbol"] not in prev_by_symbol]
+    new_entrants = [r for r in pool if r["symbol"] not in prev_by_symbol]
     new_entrants.sort(key=lambda x: x["rank"])
-    top_new = new_entrants[:20]
 
-    # 3. Biggest increase in 52-week change percentage
     wk52_moved = []
-    for r in latest:
+    for r in pool:
         sym = r["symbol"]
         if sym in prev_by_symbol:
             curr_val = _parse_pct(r["_52wk_change"])
@@ -169,19 +170,46 @@ def analyze(db_path: str) -> dict:
                 wk52_moved.append({
                     **r,
                     "prev_52wk_change": prev_by_symbol[sym]["_52wk_change"],
-                    "wk52_chg_delta": f"{delta:+.2f}%",
-                    "_wk52_delta_num": delta,
+                    "wk52_chg_delta":   f"{delta:+.2f}%",
+                    "_wk52_delta_num":  delta,
                 })
     wk52_moved.sort(key=lambda x: x["_wk52_delta_num"], reverse=True)
-    top_52wk = wk52_moved[:20]
 
     return {
         "latest_date":   latest_date,
         "prev_date":     prev_date,
-        "top_price_chg": top_price_chg,
-        "top_improved":  top_improved,
-        "top_new":       top_new,
-        "top_52wk":      top_52wk,
+        "top_price_chg": price_changed[:20],
+        "top_improved":  improved[:20],
+        "top_new":       new_entrants[:20],
+        "top_52wk":      wk52_moved[:20],
+    }
+
+
+def _load_latest_prev(db_path: str) -> tuple:
+    conn = sqlite3.connect(db_path)
+    try:
+        dates = _get_last_two_dates(conn)
+        if len(dates) < 2:
+            raise ValueError(f"Need at least 2 runs in the database, found {len(dates)}.")
+        latest_date, prev_date = dates[0], dates[1]
+        return (_get_ranked_data(conn, latest_date),
+                _get_ranked_data(conn, prev_date),
+                latest_date, prev_date)
+    finally:
+        conn.close()
+
+
+def analyze(db_path: str) -> dict:
+    latest, prev, latest_date, prev_date = _load_latest_prev(db_path)
+    return _compute_analysis(latest, prev, latest_date, prev_date)
+
+
+def analyze_all_caps(db_path: str) -> dict:
+    """Return pre-computed top-20 results for all four cap buckets."""
+    latest, prev, latest_date, prev_date = _load_latest_prev(db_path)
+    return {
+        cap: _compute_analysis(latest, prev, latest_date, prev_date, cap)
+        for cap in ("overall", "large", "mid", "small")
     }
 
 

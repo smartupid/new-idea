@@ -8,7 +8,7 @@ import report as rpt
 
 
 # ---------------------------------------------------------------------------
-# Database helper
+# Database helpers
 # ---------------------------------------------------------------------------
 
 def _search_db(db_path: str, symbol: str) -> list[dict]:
@@ -48,6 +48,8 @@ def _add_price_change_pct(rows: list[dict]) -> list[dict]:
             except (ValueError, TypeError):
                 r["price_chg_pct"] = ""
     return rows
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -90,27 +92,50 @@ def _datatable(table_id: str, rows: list[dict], col_defs: list[dict]) -> dash_ta
 
 
 # ---------------------------------------------------------------------------
-# Tab content builders
+# Layout builders
 # ---------------------------------------------------------------------------
 
 _H2 = {"color": "#1f618d", "marginTop": "28px", "borderBottom": "2px solid #aed6f1", "paddingBottom": "6px"}
 
+_BTN_BASE = {
+    "padding": "5px 14px", "fontSize": "13px", "cursor": "pointer",
+    "border": "1px solid #aed6f1", "borderRadius": "4px",
+    "backgroundColor": "#fff", "color": "#1f618d", "marginRight": "8px",
+}
+_BTN_ACTIVE = {
+    **_BTN_BASE,
+    "backgroundColor": "#1f618d", "color": "#fff", "border": "1px solid #1f618d",
+}
 
-def _report_layout(db_path: str) -> html.Div:
-    try:
-        result = rpt.analyze(db_path)
-    except ValueError as e:
-        return html.Div(str(e), style={"color": "#922b21", "backgroundColor": "#fadbd8",
-                                       "padding": "12px 16px", "borderRadius": "4px"})
+_NAV_BASE = {
+    "padding": "6px 14px",
+    "cursor": "pointer",
+    "fontSize": "14px",
+    "borderLeft": "3px solid transparent",
+    "userSelect": "none",
+}
+_NAV_ACTIVE = {**_NAV_BASE, "fontWeight": "bold", "borderLeft": "3px solid #1f618d",
+               "backgroundColor": "#d6eaf8"}
 
-    latest_date = result["latest_date"]
-    prev_date = result["prev_date"]
 
+def _report_shell(latest_date: str, prev_date: str) -> html.Div:
     return html.Div([
         html.H1("52-Week Gainers — Monthly Leaderboard", style={"color": "#1a5276"}),
         html.P(f"Comparing {prev_date} → {latest_date}  |  Click any column header to sort.",
-               style={"color": "#666", "marginBottom": "24px"}),
+               style={"color": "#666", "marginBottom": "16px"}),
+        html.Div([
+            html.Button("Overall",       id="btn-overall", n_clicks=0, style=_BTN_ACTIVE),
+            html.Button("Large (>100B)", id="btn-large",   n_clicks=0, style=_BTN_BASE),
+            html.Button("Mid (10–100B)", id="btn-mid",     n_clicks=0, style=_BTN_BASE),
+            html.Button("Small (<10B)",  id="btn-small",   n_clicks=0, style=_BTN_BASE),
+        ], style={"marginBottom": "24px"}),
+        html.Div(id="report-tables"),
+    ])
 
+
+def _tables_content(result: dict) -> html.Div:
+    latest_date = result["latest_date"]
+    return html.Div([
         html.H2("Top 20 Biggest Price Change % (between last two runs)", style=_H2),
         _datatable("t-price-chg", result["top_price_chg"],
                    _col_defs([("prev_last", "Prev Price"), ("price_chg_pct", "Price Chg %")])),
@@ -153,22 +178,13 @@ def _search_layout() -> html.Div:
 # App factory
 # ---------------------------------------------------------------------------
 
-_NAV_BASE = {
-    "padding": "6px 14px",
-    "cursor": "pointer",
-    "fontSize": "14px",
-    "borderLeft": "3px solid transparent",
-    "userSelect": "none",
-}
-_NAV_ACTIVE = {**_NAV_BASE, "fontWeight": "bold", "borderLeft": "3px solid #1f618d",
-               "backgroundColor": "#d6eaf8"}
-
-
 def run(db_path: str = "yahoo_52wk_gainers.db", debug: bool = False):
     app = dash.Dash(__name__, suppress_callback_exceptions=True)
 
     app.layout = html.Div([
         dcc.Store(id="db-path-store", data=db_path),
+        dcc.Store(id="analysis-store"),
+        dcc.Store(id="cap-filter", data="overall"),
         # Sidebar
         html.Div([
             html.Div("Report", id="nav-report", n_clicks=0, style=_NAV_ACTIVE),
@@ -189,19 +205,58 @@ def run(db_path: str = "yahoo_52wk_gainers.db", debug: bool = False):
         Output("tab-content", "children"),
         Output("nav-report", "style"),
         Output("nav-search", "style"),
+        Output("analysis-store", "data"),
+        Output("cap-filter", "data", allow_duplicate=True),
         Input("nav-report", "n_clicks"),
         Input("nav-search", "n_clicks"),
         State("db-path-store", "data"),
+        prevent_initial_call="initial_duplicate",
     )
     def render_tab(_, __, db):
         from dash import ctx
         active = "search" if ctx.triggered_id == "nav-search" else "report"
-        content = _report_layout(db) if active == "report" else _search_layout()
-        return (
-            content,
-            _NAV_ACTIVE if active == "report" else _NAV_BASE,
-            _NAV_ACTIVE if active == "search" else _NAV_BASE,
-        )
+        if active == "report":
+            try:
+                all_caps = rpt.analyze_all_caps(db)
+                result = all_caps["overall"]
+                return (_report_shell(result["latest_date"], result["prev_date"]),
+                        _NAV_ACTIVE, _NAV_BASE, all_caps, "overall")
+            except ValueError as e:
+                error = html.Div(str(e), style={"color": "#922b21", "backgroundColor": "#fadbd8",
+                                                "padding": "12px 16px", "borderRadius": "4px"})
+                return error, _NAV_ACTIVE, _NAV_BASE, None, "overall"
+        return (_search_layout(), _NAV_BASE, _NAV_ACTIVE,
+                dash.no_update, dash.no_update)
+
+    @app.callback(
+        Output("cap-filter", "data", allow_duplicate=True),
+        Output("btn-overall", "style"),
+        Output("btn-large",   "style"),
+        Output("btn-mid",     "style"),
+        Output("btn-small",   "style"),
+        Input("btn-overall", "n_clicks"),
+        Input("btn-large",   "n_clicks"),
+        Input("btn-mid",     "n_clicks"),
+        Input("btn-small",   "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def update_filter(*_):
+        from dash import ctx
+        active = ctx.triggered_id.replace("btn-", "") if ctx.triggered_id else "overall"
+        def s(key):
+            return _BTN_ACTIVE if key == active else _BTN_BASE
+        return active, s("overall"), s("large"), s("mid"), s("small")
+
+    @app.callback(
+        Output("report-tables", "children"),
+        Input("analysis-store", "data"),
+        Input("cap-filter", "data"),
+    )
+    def render_tables(analysis_data, cap_filter):
+        if not analysis_data:
+            return html.P("No data available.", style={"color": "#666"})
+        key = cap_filter or "overall"
+        return _tables_content(analysis_data[key])
 
     @app.callback(
         Output("search-results", "children"),
