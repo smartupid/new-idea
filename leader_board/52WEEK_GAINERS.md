@@ -39,10 +39,13 @@ All tables should be interactive allowing sorting by any column when displayed o
 ## Run Book
 
 Install:
+
 ```bash
 pip install -r requirements.txt
 ```
+
 Run:
+
 ```bash
 python pull_leaders.py pull [--method bs|selenium] [--pages N] [--db PATH]
 python pull_leaders.py report [--db PATH] [--out PATH]

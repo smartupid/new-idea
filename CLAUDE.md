@@ -33,7 +33,7 @@ Both scripts share an identical structure with only the `scrIds` parameter diffe
 ### Output databases (written to working directory)
 
 | Database | Table | Contents |
-|---|---|---|
+| --- | --- | --- |
 | `yahoo_gainers_long.db` | `gainers_history` | All API fields |
 | `yahoo_gainers_short.db` | `gainers_history` | 9 display columns |
 | `yahoo_losers_long.db` | `losers_history` | All API fields |
@@ -71,7 +71,7 @@ python price_momentum.py
 Pulls 12 months of OHLCV from `yfinance` (split/dividend-adjusted close). Raises `RuntimeError` with a user-friendly message on API errors or empty results; `_friendly_yf_error()` maps raw exception text to readable explanations (invalid symbol, network failure, rate-limit). Derived columns:
 
 | Column | Formula |
-|---|---|
+| --- | --- |
 | `daily_range` | `high - low` |
 | `daily_mid` | `daily_range / 2` |
 | `daily_std` | `sqrt(high * low)` |
@@ -101,7 +101,7 @@ Each MA window is a **separate** `go.Figure` (via `build_window_figure`) wrapped
 **Raw Prices** — 5 rows × 2 cols per window (`height = 5 × 185 px`):
 
 | Row | Left column | Right column |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Close & {w}d MA (line) | Scaled Volume (bar) |
 | 2 | Daily Return (bar) | Vol × Return (bar) |
 | 3 | 1st Momentum (bar) | Vol × 1st Momentum (bar) |
@@ -111,7 +111,7 @@ Each MA window is a **separate** `go.Figure` (via `build_window_figure`) wrapped
 **Log Prices** — 4 rows × 2 cols per window (`height = 4 × 185 px`), same layout minus the return row:
 
 | Row | Left column | Right column |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Log Close & {w}d MA (line) | Scaled Volume (bar) |
 | 2 | 1st Momentum (bar) | Vol × 1st Momentum (bar) |
 | 3 | 2nd Momentum (bar) | Vol × 2nd Momentum (bar) |
