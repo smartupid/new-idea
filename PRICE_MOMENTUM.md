@@ -19,8 +19,6 @@ The data should at least contain the following columns. If the API returns more 
 The following columns will be added:
 
 - daily range = daily high - daily low
-- daily mid = daily range / 2
-- daily std = sqrt(daily high * daily low)
 - daily return = adjusted close / prior day adjusted close - 1
 - volume = volume / 100000
 
@@ -28,23 +26,14 @@ The data should be saved as a SQLite file in the ./daily_price folder with a nam
 
 ## Analysis
 
-The following moving averages will be computed over 5-day, 10-day, 20-day, and 50-day windows on adjusted close. Then the 1st order momentums will be calculated for each moving average series.
-
-Then for each moving average series, a roll sum over 20 trading days will be calculated.
+The following moving averages will be computed over 5-day, 10-day, 20-day, and 50-day windows on adjusted close. The difference between the daily adjusted close and the various moving averages will be calculated.
 
 ## Visualization
 
-Use a two-column layout to display the charts below. Each plot below should have its own title. Use yyyy-mm as the format for x-axis label. Keep the same height of all plots. All plots under each moving average window form a section. Each section should be separated from the next by a visual border.
+The charts below will be displayed using the full width of the page. Each plot below should have its own title. Determine the best format for x-axis label. Keep the same height of all plots. Each plot should have a visual border.
 
-Plots in the left column in the listed order:
-
-- adjusted close and the moving average line chart
-- 1st order momentum barchart
-
-right column in the list order
-
-- daily return barchart (left y-axis) overlaid with volume barchart (right y-axis)
-- rolling sum on the momentum line chart
+- Three lines showing the high, low, and adjusted close of each day, and the daily volume as barchart overlaid in one plot
+- For each moving average window, the moving average as a line chart and the difference between adjust close and the moving average as a barchart, overlaid in one plot
 
 ## UI
 
