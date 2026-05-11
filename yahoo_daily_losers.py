@@ -60,10 +60,26 @@ def clean_for_sqlite(df):
         )
     return df
 
+def _sqlite_type(series):
+    if pd.api.types.is_integer_dtype(series):
+        return "INTEGER"
+    if pd.api.types.is_float_dtype(series):
+        return "REAL"
+    return "TEXT"
+
 def save_to_sqlite(df, db_name, table_name):
     df = clean_for_sqlite(df)
     df["run_date"] = datetime.today().strftime("%Y-%m-%d")
     conn = sqlite3.connect(db_name)
+    cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+    if cur.fetchone():
+        cur.execute(f"PRAGMA table_info({table_name})")
+        existing = {row[1] for row in cur.fetchall()}
+        for col in df.columns:
+            if col not in existing:
+                cur.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{col}" {_sqlite_type(df[col])}')
+        conn.commit()
     df.to_sql(table_name, conn, if_exists="append", index=False)
     conn.close()
     print(f"Appended {len(df)} rows to {db_name} in table '{table_name}'.")
